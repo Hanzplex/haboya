@@ -1,0 +1,538 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Birthday Candle Wish</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(45deg, #ff6b6b, #ffd93d, #6bcf7f, #4d96ff);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+            font-family: 'Comic Sans MS', cursive;
+            overflow: hidden;
+        }
+
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .wrapper {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+        }
+
+        h1 {
+            color: #ff6b6b;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+            margin-bottom: 15px;
+        }
+
+        .love-text {
+            color: #ff6b6b;
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            animation: heartbeat 1.5s ease-in-out infinite;
+        }
+
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            25% { transform: scale(1.1); }
+            50% { transform: scale(1); }
+        }
+
+        @media (max-width: 600px) {
+            .wrapper {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .subtitle {
+                font-size: 0.9em;
+            }
+
+            .love-text {
+                font-size: 1.2em;
+            }
+
+            canvas {
+                max-width: 100%;
+                height: auto;
+            }
+
+            button {
+                padding: 10px 20px;
+                font-size: 0.9em;
+            }
+
+            .info {
+                font-size: 0.8em;
+            }
+        }
+
+        canvas {
+            display: block;
+            margin: 20px auto;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 30px;
+            font-size: 1em;
+            font-weight: bold;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            font-family: 'Comic Sans MS', cursive;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .blow-btn {
+            background: linear-gradient(135deg, #ff6b6b, #ff8787);
+            color: white;
+        }
+
+        .reset-btn {
+            background: linear-gradient(135deg, #4d96ff, #7fb3ff);
+            color: white;
+        }
+
+        .listening {
+            animation: pulse-btn 1s infinite;
+        }
+
+        @keyframes pulse-btn {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .status {
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: #333;
+            min-height: 30px;
+        }
+
+        .celebration {
+            animation: bounce 0.6s ease;
+            color: #ff6b6b;
+            font-weight: bold;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .info {
+            color: #999;
+            font-size: 0.9em;
+            margin-top: 15px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <h1>🎂 Birthday Wish 🎂</h1>
+        <p class="subtitle">Make a wish and blow out the candle!</p>
+        <p class="love-text">💕 I love you so much 💕</p>
+        
+        <canvas id="candleCanvas" width="350" height="450"></canvas>
+
+        <div class="controls">
+            <button id="blowBtn" class="blow-btn">🎤 Blow the Candle</button>
+            <button id="resetBtn" class="reset-btn hidden">🔥 Light Again</button>
+        </div>
+
+        <div class="status" id="status"></div>
+        <div class="info" id="info">💡 Click the button and blow gently into your microphone</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('candleCanvas');
+        const ctx = canvas.getContext('2d');
+        const blowBtn = document.getElementById('blowBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const status = document.getElementById('status');
+        const info = document.getElementById('info');
+
+        let isLit = true;
+        let listening = false;
+        let audioContext = null;
+        let analyser = null;
+        let stream = null;
+
+        class Spark {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 4;
+                this.vy = -Math.random() * 4 - 2;
+                this.life = 1;
+                this.size = Math.random() * 6 + 2;
+                this.angle = Math.random() * Math.PI * 2;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy -= 0.1;
+                this.life -= 0.015;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                const hue = 30 + Math.random() * 30;
+                ctx.fillStyle = `hsl(${hue}, 100%, ${60 - this.life * 40}%)`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        let sparks = [];
+
+        function drawFlower(x, y, petalColor, centerColor) {
+            const petalSize = 6;
+            
+            // Draw 5 petals in a circle
+            for (let i = 0; i < 5; i++) {
+                const angle = (i * Math.PI * 2) / 5;
+                const petalX = x + Math.cos(angle) * 10;
+                const petalY = y + Math.sin(angle) * 10;
+                
+                ctx.fillStyle = petalColor;
+                ctx.beginPath();
+                ctx.ellipse(petalX, petalY, petalSize, petalSize + 2, angle, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Draw center
+            ctx.fillStyle = centerColor;
+            ctx.beginPath();
+            ctx.arc(x, y, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawScene() {
+            ctx.fillStyle = '#f5f5f5';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Plate - 3D effect
+            ctx.fillStyle = '#d0d0d0';
+            ctx.beginPath();
+            ctx.ellipse(canvas.width / 2, 340, 140, 35, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#e8e8e8';
+            ctx.beginPath();
+            ctx.ellipse(canvas.width / 2, 335, 135, 30, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#999';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Cake layers - 3D perspective
+            const cakeX = canvas.width / 2;
+            const cakeY = 260;
+            const cakeWidth = 140;
+            const cakeHeight = 60;
+
+            // Bottom layer
+            ctx.fillStyle = '#A0522D';
+            ctx.beginPath();
+            ctx.moveTo(cakeX - cakeWidth/2, cakeY + cakeHeight);
+            ctx.lineTo(cakeX + cakeWidth/2, cakeY + cakeHeight);
+            ctx.lineTo(cakeX + cakeWidth/2 - 8, cakeY + cakeHeight - 8);
+            ctx.lineTo(cakeX - cakeWidth/2 + 8, cakeY + cakeHeight - 8);
+            ctx.closePath();
+            ctx.fill();
+
+            // Main cake body
+            const gradient = ctx.createLinearGradient(cakeX, cakeY, cakeX, cakeY + cakeHeight);
+            gradient.addColorStop(0, '#8B4513');
+            gradient.addColorStop(1, '#654321');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(cakeX - cakeWidth/2, cakeY, cakeWidth, cakeHeight);
+
+            // Frosting layer - smooth and creamy
+            const frostingGradient = ctx.createLinearGradient(cakeX, cakeY - 15, cakeX, cakeY + 5);
+            frostingGradient.addColorStop(0, '#FF69B4');
+            frostingGradient.addColorStop(1, '#FF1493');
+            ctx.fillStyle = frostingGradient;
+            ctx.beginPath();
+            ctx.moveTo(cakeX - cakeWidth/2 - 5, cakeY);
+            ctx.quadraticCurveTo(cakeX - cakeWidth/4, cakeY - 20, cakeX, cakeY - 25);
+            ctx.quadraticCurveTo(cakeX + cakeWidth/4, cakeY - 20, cakeX + cakeWidth/2 + 5, cakeY);
+            ctx.lineTo(cakeX + cakeWidth/2, cakeY + cakeHeight);
+            ctx.lineTo(cakeX - cakeWidth/2, cakeY + cakeHeight);
+            ctx.closePath();
+            ctx.fill();
+
+            // Frosting decorations - cream swirls
+            ctx.fillStyle = '#FFB6C1';
+            for (let i = 0; i < cakeWidth; i += 30) {
+                ctx.beginPath();
+                ctx.arc(cakeX - cakeWidth/2 + 15 + i, cakeY + 15, 8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw flowers on cake
+            drawFlower(cakeX - 40, cakeY + 20, '#FF1493', '#FFB6C1');
+            drawFlower(cakeX + 40, cakeY + 20, '#FF69B4', '#FFB6C1');
+            drawFlower(cakeX, cakeY - 10, '#FF6347', '#FFD700');
+
+            // Candle stick - wax texture
+            const candleX = cakeX;
+            const candleBaseY = cakeY - 25;
+            
+            const candleGradient = ctx.createLinearGradient(candleX - 15, 0, candleX + 15, 0);
+            candleGradient.addColorStop(0, '#FFFACD');
+            candleGradient.addColorStop(0.5, '#FFFFE0');
+            candleGradient.addColorStop(1, '#FFFACD');
+            
+            ctx.fillStyle = candleGradient;
+            ctx.beginPath();
+            ctx.moveTo(candleX - 14, candleBaseY);
+            ctx.lineTo(candleX + 14, candleBaseY);
+            ctx.lineTo(candleX + 13, candleBaseY - 100);
+            ctx.lineTo(candleX - 13, candleBaseY - 100);
+            ctx.closePath();
+            ctx.fill();
+
+            // Candle wick
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(candleX, candleBaseY - 100);
+            ctx.lineTo(candleX, candleBaseY - 95);
+            ctx.stroke();
+
+            // Draw flame if lit
+            if (isLit) {
+                drawFlame(candleX, candleBaseY - 100);
+                
+                // Create sparks
+                if (sparks.length < 35 && Math.random() > 0.35) {
+                    sparks.push(new Spark(candleX + (Math.random() - 0.5) * 12, candleBaseY - 100));
+                }
+            }
+
+            // Update and draw sparks
+            sparks = sparks.filter(s => s.life > 0);
+            sparks.forEach(s => {
+                s.update();
+                s.draw(ctx);
+            });
+
+            requestAnimationFrame(drawScene);
+        }
+
+        function drawFlame(x, y) {
+            const time = Date.now() * 0.005;
+            const wobble = Math.sin(time) * 2.5;
+
+            // Outer flame - red/orange with gradient
+            const outerGradient = ctx.createRadialGradient(x, y - 30, 0, x, y - 30, 35);
+            outerGradient.addColorStop(0, 'rgba(255, 120, 0, 0.7)');
+            outerGradient.addColorStop(0.7, 'rgba(255, 100, 0, 0.4)');
+            outerGradient.addColorStop(1, 'rgba(255, 100, 0, 0)');
+            
+            ctx.fillStyle = outerGradient;
+            ctx.beginPath();
+            ctx.bezierCurveTo(
+                x - 20 + wobble, y + 50,
+                x - 28, y - 20,
+                x + wobble, y - 75
+            );
+            ctx.bezierCurveTo(
+                x + 28, y - 20,
+                x + 20 + wobble, y + 50,
+                x, y + 50
+            );
+            ctx.fill();
+
+            // Middle flame - bright orange
+            const midGradient = ctx.createRadialGradient(x, y - 25, 0, x, y - 25, 25);
+            midGradient.addColorStop(0, 'rgba(255, 200, 0, 0.8)');
+            midGradient.addColorStop(0.6, 'rgba(255, 180, 0, 0.5)');
+            midGradient.addColorStop(1, 'rgba(255, 180, 0, 0)');
+            
+            ctx.fillStyle = midGradient;
+            ctx.beginPath();
+            ctx.bezierCurveTo(
+                x - 14 + wobble * 0.6, y + 40,
+                x - 18, y - 15,
+                x + wobble * 0.6, y - 60
+            );
+            ctx.bezierCurveTo(
+                x + 18, y - 15,
+                x + 14 + wobble * 0.6, y + 40,
+                x, y + 40
+            );
+            ctx.fill();
+
+            // Inner flame - yellow
+            const innerGradient = ctx.createRadialGradient(x, y - 20, 0, x, y - 20, 18);
+            innerGradient.addColorStop(0, 'rgba(255, 255, 150, 0.95)');
+            innerGradient.addColorStop(0.5, 'rgba(255, 255, 100, 0.7)');
+            innerGradient.addColorStop(1, 'rgba(255, 255, 100, 0)');
+            
+            ctx.fillStyle = innerGradient;
+            ctx.beginPath();
+            ctx.bezierCurveTo(
+                x - 10, y + 30,
+                x - 12, y - 5,
+                x, y - 50
+            );
+            ctx.bezierCurveTo(
+                x + 12, y - 5,
+                x + 10, y + 30,
+                x, y + 30
+            );
+            ctx.fill();
+
+            // Bright hot core
+            const coreGradient = ctx.createRadialGradient(x, y - 15, 0, x, y - 15, 8);
+            coreGradient.addColorStop(0, 'rgba(255, 255, 220, 1)');
+            coreGradient.addColorStop(1, 'rgba(255, 255, 200, 0)');
+            ctx.fillStyle = coreGradient;
+            ctx.beginPath();
+            ctx.arc(x, y - 15, 8, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        blowBtn.addEventListener('click', startBlowing);
+
+        async function startBlowing() {
+            if (listening) return;
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 512;
+
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+
+                listening = true;
+                blowBtn.classList.add('listening');
+                blowBtn.disabled = true;
+                status.textContent = '🎤 Listening... Blow now!';
+                info.textContent = '💨 Blow gently into your microphone';
+
+                detectBlowing();
+            } catch (err) {
+                status.textContent = '❌ Microphone access denied';
+                info.textContent = 'Please allow microphone permission';
+            }
+        }
+
+        function detectBlowing() {
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(dataArray);
+
+            // Calculate average frequency
+            const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+
+            if (average > 20 && isLit) {
+                isLit = false;
+                listening = false;
+                stopBlowing();
+                
+                status.innerHTML = '🎉 Wish Granted! 🎉';
+                status.classList.add('celebration');
+                info.textContent = '✨ Your wish is on its way!';
+                blowBtn.classList.add('hidden');
+                resetBtn.classList.remove('hidden');
+                return;
+            }
+
+            if (listening) {
+                requestAnimationFrame(detectBlowing);
+            }
+        }
+
+        function stopBlowing() {
+            listening = false;
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            if (audioContext) {
+                audioContext.close();
+            }
+            blowBtn.classList.remove('listening');
+            blowBtn.disabled = false;
+        }
+
+        resetBtn.addEventListener('click', () => {
+            isLit = true;
+            sparks = [];
+            status.textContent = '';
+            status.classList.remove('celebration');
+            info.textContent = '💡 Click the button and blow gently into your microphone';
+            blowBtn.classList.remove('hidden');
+            resetBtn.classList.add('hidden');
+            stopBlowing();
+        });
+
+        drawScene();
+    </script>
+</body>
+</html>
