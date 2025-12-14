@@ -1,0 +1,451 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Birthday Candle Wish</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(45deg, #ff6b6b, #ffd93d, #6bcf7f, #4d96ff);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+            font-family: 'Comic Sans MS', cursive;
+            overflow: hidden;
+        }
+
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .wrapper {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+        }
+
+        h1 {
+            color: #ff6b6b;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+            margin-bottom: 15px;
+        }
+
+        .love-text {
+            color: #ff6b6b;
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            animation: heartbeat 1.5s ease-in-out infinite;
+        }
+
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            25% { transform: scale(1.1); }
+            50% { transform: scale(1); }
+        }
+
+        @media (max-width: 600px) {
+            .wrapper {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .subtitle {
+                font-size: 0.9em;
+            }
+
+            .love-text {
+                font-size: 1.2em;
+            }
+
+            canvas {
+                max-width: 100%;
+                height: auto;
+            }
+
+            button {
+                padding: 10px 20px;
+                font-size: 0.9em;
+            }
+
+            .info {
+                font-size: 0.8em;
+            }
+        }
+
+        canvas {
+            display: block;
+            margin: 20px auto;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 30px;
+            font-size: 1em;
+            font-weight: bold;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            font-family: 'Comic Sans MS', cursive;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .blow-btn {
+            background: linear-gradient(135deg, #ff6b6b, #ff8787);
+            color: white;
+        }
+
+        .reset-btn {
+            background: linear-gradient(135deg, #4d96ff, #7fb3ff);
+            color: white;
+        }
+
+        .listening {
+            animation: pulse-btn 1s infinite;
+        }
+
+        @keyframes pulse-btn {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .status {
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: #333;
+            min-height: 30px;
+        }
+
+        .celebration {
+            animation: bounce 0.6s ease;
+            color: #ff6b6b;
+            font-weight: bold;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .info {
+            color: #999;
+            font-size: 0.9em;
+            margin-top: 15px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <h1>🎂 Birthday Wish 🎂</h1>
+        <p class="subtitle">Make a wish and blow out the candle!</p>
+        <p class="love-text">💕 I love you so much 💕</p>
+        
+        <canvas id="candleCanvas" width="350" height="450"></canvas>
+
+        <div class="controls">
+            <button id="blowBtn" class="blow-btn">🎤 Blow the Candle</button>
+            <button id="resetBtn" class="reset-btn hidden">🔥 Light Again</button>
+        </div>
+
+        <div class="status" id="status"></div>
+        <div class="info" id="info">💡 Click the button and blow gently into your microphone</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('candleCanvas');
+        const ctx = canvas.getContext('2d');
+        const blowBtn = document.getElementById('blowBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const status = document.getElementById('status');
+        const info = document.getElementById('info');
+
+        let isLit = true;
+        let listening = false;
+        let audioContext = null;
+        let analyser = null;
+        let stream = null;
+
+        class Spark {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 4;
+                this.vy = -Math.random() * 4 - 2;
+                this.life = 1;
+                this.size = Math.random() * 6 + 2;
+                this.angle = Math.random() * Math.PI * 2;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy -= 0.1;
+                this.life -= 0.015;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                const hue = 30 + Math.random() * 30;
+                ctx.fillStyle = `hsl(${hue}, 100%, ${60 - this.life * 40}%)`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        let sparks = [];
+
+        function drawScene() {
+            ctx.fillStyle = '#f5f5f5';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Plate
+            ctx.fillStyle = '#e0e0e0';
+            ctx.beginPath();
+            ctx.ellipse(canvas.width / 2, 350, 120, 30, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#bbb';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Cake body
+            const cakeX = canvas.width / 2 - 80;
+            const cakeY = 280;
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(cakeX, cakeY, 160, 70);
+
+            // Frosting swirls
+            ctx.fillStyle = '#ff6b9d';
+            for (let i = 0; i < 160; i += 25) {
+                ctx.beginPath();
+                ctx.arc(cakeX + i + 12, cakeY + 35, 12, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Candle stick
+            const candleX = canvas.width / 2;
+            const candleY = cakeY;
+            ctx.fillStyle = '#FFF8DC';
+            ctx.fillRect(candleX - 12, candleY - 120, 24, 120);
+            ctx.strokeStyle = '#daa520';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(candleX - 12, candleY - 120, 24, 120);
+
+            // Draw flame if lit
+            if (isLit) {
+                drawFlame(candleX, candleY - 120);
+                
+                // Create sparks
+                if (sparks.length < 40 && Math.random() > 0.3) {
+                    sparks.push(new Spark(candleX + (Math.random() - 0.5) * 15, candleY - 120));
+                }
+            }
+
+            // Update and draw sparks
+            sparks = sparks.filter(s => s.life > 0);
+            sparks.forEach(s => {
+                s.update();
+                s.draw(ctx);
+            });
+
+            requestAnimationFrame(drawScene);
+        }
+
+        function drawFlame(x, y) {
+            const time = Date.now() * 0.005;
+            const wobble = Math.sin(time) * 3;
+
+            // Outer flame (red)
+            const gradient1 = ctx.createLinearGradient(x, y + 60, x, y - 60);
+            gradient1.addColorStop(0, 'rgba(255, 100, 0, 0.8)');
+            gradient1.addColorStop(1, 'rgba(255, 100, 0, 0)');
+            
+            ctx.fillStyle = gradient1;
+            ctx.beginPath();
+            ctx.bezierCurveTo(
+                x - 18 + wobble, y + 60,
+                x - 25, y - 30,
+                x + wobble, y - 70
+            );
+            ctx.bezierCurveTo(
+                x + 25, y - 30,
+                x + 18 + wobble, y + 60,
+                x, y + 60
+            );
+            ctx.fill();
+
+            // Middle flame (orange)
+            const gradient2 = ctx.createLinearGradient(x, y + 50, x, y - 50);
+            gradient2.addColorStop(0, 'rgba(255, 180, 0, 0.8)');
+            gradient2.addColorStop(1, 'rgba(255, 180, 0, 0)');
+            
+            ctx.fillStyle = gradient2;
+            ctx.beginPath();
+            ctx.bezierCurveTo(
+                x - 12 + wobble * 0.5, y + 50,
+                x - 15, y - 20,
+                x + wobble * 0.5, y - 55
+            );
+            ctx.bezierCurveTo(
+                x + 15, y - 20,
+                x + 12 + wobble * 0.5, y + 50,
+                x, y + 50
+            );
+            ctx.fill();
+
+            // Inner flame (yellow)
+            const gradient3 = ctx.createLinearGradient(x, y + 40, x, y - 40);
+            gradient3.addColorStop(0, 'rgba(255, 255, 100, 0.9)');
+            gradient3.addColorStop(1, 'rgba(255, 255, 100, 0)');
+            
+            ctx.fillStyle = gradient3;
+            ctx.beginPath();
+            ctx.bezierCurveTo(
+                x - 8, y + 40,
+                x - 10, y - 10,
+                x, y - 45
+            );
+            ctx.bezierCurveTo(
+                x + 10, y - 10,
+                x + 8, y + 40,
+                x, y + 40
+            );
+            ctx.fill();
+
+            // Bright core
+            ctx.fillStyle = 'rgba(255, 255, 200, 0.95)';
+            ctx.beginPath();
+            ctx.arc(x, y - 25, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        blowBtn.addEventListener('click', startBlowing);
+
+        async function startBlowing() {
+            if (listening) return;
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 512;
+
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+
+                listening = true;
+                blowBtn.classList.add('listening');
+                blowBtn.disabled = true;
+                status.textContent = '🎤 Listening... Blow now!';
+                info.textContent = '💨 Blow gently into your microphone';
+
+                detectBlowing();
+            } catch (err) {
+                status.textContent = '❌ Microphone access denied';
+                info.textContent = 'Please allow microphone permission';
+            }
+        }
+
+        function detectBlowing() {
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(dataArray);
+
+            // Calculate average frequency
+            const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+
+            if (average > 20 && isLit) {
+                isLit = false;
+                listening = false;
+                stopBlowing();
+                
+                status.innerHTML = '🎉 Wish Granted! 🎉';
+                status.classList.add('celebration');
+                info.textContent = '✨ Your wish is on its way!';
+                blowBtn.classList.add('hidden');
+                resetBtn.classList.remove('hidden');
+                return;
+            }
+
+            if (listening) {
+                requestAnimationFrame(detectBlowing);
+            }
+        }
+
+        function stopBlowing() {
+            listening = false;
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            if (audioContext) {
+                audioContext.close();
+            }
+            blowBtn.classList.remove('listening');
+            blowBtn.disabled = false;
+        }
+
+        resetBtn.addEventListener('click', () => {
+            isLit = true;
+            sparks = [];
+            status.textContent = '';
+            status.classList.remove('celebration');
+            info.textContent = '💡 Click the button and blow gently into your microphone';
+            blowBtn.classList.remove('hidden');
+            resetBtn.classList.add('hidden');
+            stopBlowing();
+        });
+
+        drawScene();
+    </script>
+</body>
+</html>
